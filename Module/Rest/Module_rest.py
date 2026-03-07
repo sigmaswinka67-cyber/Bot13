@@ -291,14 +291,21 @@ async def add_user_vacation(message: Message):
     if not is_admin(message.from_user.id):
         return
 
-    parts = message.text.replace("!!добавить рест", "").strip().split()
-    if len(parts) < 2:
+    parts = message.text.split()
+
+    if len(parts) < 3:
+        await message.reply(
+            "❌ Использование:\n"
+            "!!добавить рест @username YYYY-MM-DD YYYY-MM-DD\n"
+            "!!добавить рест @username 2 недели\n"
+            "!!добавить рест @username ?"
+        )
         return
 
-    username_raw = parts[0]
+    username_raw = parts[2]
 
-    username_raw = parts[1]
     if not username_raw.startswith("@"):
+        await message.reply("❌ Нужно указать @username")
         return
 
     clean_username = username_raw.replace("@", "").lower()
@@ -309,7 +316,7 @@ async def add_user_vacation(message: Message):
     end_dt = None
 
     # Неопределённый рест
-    if parts[2] == "?":
+    if len(parts) == 4 and parts[3] == "?":
         data[clean_username] = {
             "username": clean_username,
             "start_datetime": start_dt.strftime("%Y-%m-%d %H:%M"),
@@ -322,7 +329,7 @@ async def add_user_vacation(message: Message):
         return
 
     # Даты или недели/месяцы
-    if len(parts) == 4:
+    if len(parts) >= 5:
         try:
             start_dt = datetime.strptime(parts[2], "%Y-%m-%d").replace(tzinfo=UTC3)
             end_dt = datetime.strptime(parts[3], "%Y-%m-%d").replace(
@@ -369,18 +376,27 @@ async def delete_rest_user(message: Message):
         return
 
     parts = message.text.split()
-    if len(parts) != 2:
+
+    if len(parts) < 3:
+        await message.reply("❌ Использование:\n!!удалить рест @username")
         return
 
-    username = parts[1].replace("@", "").lower()
+    username = parts[2]
+
+    if not username.startswith("@"):
+        await message.reply("❌ Нужно указать @username")
+        return
+
+    username = username.replace("@", "").lower()
+
     data = load_json(VACATIONS_FILE)
 
     if username in data:
         del data[username]
         save_json(VACATIONS_FILE, data)
-        await message.reply("✅ Пользователь удалён.")
+        await message.reply("✅ Пользователь удалён из реста.")
     else:
-        await message.reply("❌ Пользователь не найден.")
+        await message.reply("❌ Этот пользователь не находится в ресте.")
 
 # =========================
 # /restlist с КД (красивый таймер)
