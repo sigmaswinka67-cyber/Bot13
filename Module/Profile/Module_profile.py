@@ -347,45 +347,43 @@ async def edit_profile(message: Message):
 
     profiles = load_profiles()
 
-    target = message.from_user
+    target = await get_target_user(message)
 
-    if message.reply_to_message:
-        target = message.reply_to_message.from_user
+    if not target:
+        await message.reply("❌ Пользователь не найден.")
+        return
 
-    parts = message.text.split()
-
-    if len(parts) >= 3 and parts[2].startswith("@"):
-
-        if not is_admin(message.from_user.id):
-            return
-
-        username = parts[2].replace("@", "")
-
-        try:
-            target = await get_target_user(message)
-
-            if not target:
-                await message.reply("❌ Пользователь не найден.")
-                return
-
-        except:
-            await message.reply("❌ Ошибка поиска пользователя.")
-            return
+    # если пытаются редактировать чужой профиль
+    if target.id != message.from_user.id and not is_admin(message.from_user.id):
+        await message.reply("❌ Вы можете редактировать только свой профиль.")
+        return
 
     user_id = str(target.id)
 
     if user_id not in profiles:
-        await message.reply("Профиль не найден.")
+        await message.reply("❌ Профиль не найден.")
         return
 
     kb = InlineKeyboardBuilder()
 
-    if is_admin(message.from_user.id):
-        kb.button(text="Роль", callback_data=f"profile_role_{user_id}")
+    caller_id = message.from_user.id
 
-    if message.from_user.id == target.id:
-        kb.button(text="Местоимение", callback_data=f"profile_pronoun_{user_id}")
-        kb.button(text="День рождения", callback_data=f"profile_birthday_{user_id}")
+    if is_admin(caller_id):
+        kb.button(
+            text="Роль",
+            callback_data=f"profile_role_{user_id}_{caller_id}"
+        )
+
+    if caller_id == target.id:
+        kb.button(
+            text="Местоимение",
+            callback_data=f"profile_pronoun_{user_id}_{caller_id}"
+        )
+
+        kb.button(
+            text="День рождения",
+            callback_data=f"profile_birthday_{user_id}_{caller_id}"
+        )
 
     kb.adjust(1)
 
@@ -394,23 +392,21 @@ async def edit_profile(message: Message):
         reply_markup=kb.as_markup()
     )
 
-
 # ================= МЕСТОИМЕНИЯ =================
 
-@router.callback_query(lambda c: c.data.startswith("profile_pronoun"))
 async def pronoun_menu(callback: CallbackQuery):
 
-    user_id = callback.data.split("_")[2]
+    _, _, user_id, caller_id = callback.data.split("_")
 
-    if callback.from_user.id != int(user_id):
+    if callback.from_user.id != int(caller_id):
         await callback.answer()
         return
 
     kb = InlineKeyboardBuilder()
 
-    kb.button(text="Он", callback_data=f"set_pronoun_{user_id}_он")
-    kb.button(text="Она", callback_data=f"set_pronoun_{user_id}_она")
-    kb.button(text="Они", callback_data=f"set_pronoun_{user_id}_они")
+    kb.button(text="Он", callback_data=f"set_pronoun_{user_id}_{caller_id}_он")
+    kb.button(text="Она", callback_data=f"set_pronoun_{user_id}_{caller_id}_она")
+    kb.button(text="Они", callback_data=f"set_pronoun_{user_id}_{caller_id}_они")
 
     kb.adjust(1)
 
@@ -422,10 +418,9 @@ async def pronoun_menu(callback: CallbackQuery):
 
 @router.callback_query(lambda c: c.data.startswith("set_pronoun"))
 async def set_pronoun(callback: CallbackQuery):
+    _, _, user_id, caller_id, pronoun = callback.data.split("_")
 
-    _, _, user_id, pronoun = callback.data.split("_")
-
-    if callback.from_user.id != int(user_id):
+    if callback.from_user.id != int(caller_id):
         await callback.answer()
         return
 
@@ -445,8 +440,19 @@ waiting_role = {}
 @router.callback_query(lambda c: c.data.startswith("profile_role"))
 async def ask_role(callback: CallbackQuery):
 
+    _, _, user_id, caller_id = callback.data.split("_")
+
+    if callback.from_user.id != int(caller_id):
+        await callback.answer()
+        return
+
+    if not is_admin(callback.from_user.id):
+        await callback.answer()
+        return
+
     user_id = callback.data.split("_")[2]
 
+    # записываем кто нажал кнопку
     waiting_role[callback.from_user.id] = user_id
 
     await callback.message.answer(
@@ -459,22 +465,31 @@ async def ask_role(callback: CallbackQuery):
 @router.message(lambda m: m.from_user.id in waiting_role)
 async def set_role(message: Message):
 
+    admin_id = message.from_user.id
+
+    # проверяем что именно этот человек нажал кнопку
+    if admin_id not in waiting_role:
+        return
+
+    if not is_admin(admin_id):
+        waiting_role.pop(admin_id, None)
+        return
+
     role = message.text.strip()
 
     if len(role) > 25:
         await message.reply("❌ Роль должна быть до 25 символов.")
         return
 
-    user_id = waiting_role.pop(message.from_user.id)
+    target_id = waiting_role.pop(admin_id)
 
     profiles = load_profiles()
 
-    if user_id not in profiles:
+    if target_id not in profiles:
         await message.reply("❌ Профиль не найден.")
         return
 
-    # запись роли
-    profiles[user_id]["role"] = role
+    profiles[target_id]["role"] = role
 
     save_profiles(profiles)
 
@@ -485,9 +500,9 @@ waiting_birthday = {}
 @router.callback_query(lambda c: c.data.startswith("profile_birthday"))
 async def ask_birthday(callback: CallbackQuery):
 
-    user_id = callback.data.split("_")[2]
+    _, _, user_id, caller_id = callback.data.split("_")
 
-    if callback.from_user.id != int(user_id):
+    if callback.from_user.id != int(caller_id):
         await callback.answer()
         return
 
