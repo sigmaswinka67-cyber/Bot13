@@ -161,7 +161,7 @@ def build_rest_list(data):
                     role = p.get("role") or "нет роли"
                     break
 
-            mention = f"@{username} | {role}"
+            mention = f'<a href="https://t.me/{username}">{username}</a> | {role}'
 
             if v["end_datetime"] == "неопределенный":
 
@@ -457,4 +457,5 @@ async def restlist(message: Message):
     text = build_rest_list(data)
 
     await message.answer(text)
+
 
