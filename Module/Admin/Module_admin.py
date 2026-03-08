@@ -183,11 +183,8 @@ async def build_admin_list():
         if str(owner).isdigit() and bot_instance:
             try:
                 chat = await bot_instance.get_chat(int(owner))
-
-                if chat.username:
-                    owner_display = f"@{chat.username} | {role}"
-                else:
-                    owner_display = f"<code>{owner}</code> | {role}"
+                name = chat.full_name
+                owner_display = f'<a href="tg://user?id={chat.id}">{name}</a> | {role}'
 
             except:
                 owner_display = f"<code>{owner}</code> | {role}"
@@ -214,10 +211,12 @@ async def build_admin_list():
             if admin_id in profiles:
                 role = profiles[admin_id].get("role") or "нет роли"
 
-            if username:
-                admin_display = f"@{username} | {role}"
-            else:
-                admin_display = f"<code>{admin_id}</code> | {role}"
+            try:
+                chat = await bot_instance.get_chat(int(admin_id))
+                name = chat.full_name
+                admin_display = f'<a href="tg://user?id={chat.id}">{name}</a> | {role}'
+            except:
+                    admin_display = f"<code>{admin_id}</code> | {role}"
 
             text += f"{i}. {admin_display}\n"
 
@@ -308,5 +307,6 @@ async def give_owner(message: Message):
 
 
     await message.reply("🔰 Создатель передан.")
+
 
 
