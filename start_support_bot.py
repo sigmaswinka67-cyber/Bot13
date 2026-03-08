@@ -13,12 +13,6 @@ from Module.Admin import Module_admin
 from Module.Rest import Module_rest
 from Module.Profile import Module_profile
 
-requests.post(
- "https://checkbot-production-b44c.up.railway.app/bot_activity",
- json={
-   "bot_id":"bot1",
-   "status":"working"
- }
 )
 # =========================
 # CONFIG
@@ -198,3 +192,4 @@ async def main():
 if __name__ == "__main__":
 
     asyncio.run(main())
+
