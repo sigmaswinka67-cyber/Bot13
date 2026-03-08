@@ -13,7 +13,7 @@ from Module.Admin import Module_admin
 from Module.Rest import Module_rest
 from Module.Profile import Module_profile
 
-)
+
 # =========================
 # CONFIG
 # =========================
@@ -192,4 +192,5 @@ async def main():
 if __name__ == "__main__":
 
     asyncio.run(main())
+
 
